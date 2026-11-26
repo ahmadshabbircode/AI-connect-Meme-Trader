@@ -44,3 +44,7 @@ Solana key security guidance: https://solana.com/docs/tools/security
 
 ## Next development gate
 Before any real-money mode, add reliable executable quotes/fill verification, sellability/liquidity checks, wallet custody outside the app, hard daily-loss and exposure caps, kill switch, and a manual approval stage. Validate the strategy in paper mode first.
+
+
+## Render demo deployment (paper mode)
+A `render.yaml` and `start.sh` are included for a single free web service. Connect the GitHub repository to Render and choose Blueprint deployment, or create a Python web service with build command `pip install -r requirements.txt` and start command `bash start.sh`. Free Render services can sleep/restart and do not have persistent disks, so this is a demo only: scanner uptime and SQLite history are not guaranteed. A continuously running scanner requires a paid always-on service. See https://render.com/docs/free.

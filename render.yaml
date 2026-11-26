@@ -1,0 +1,18 @@
+services:
+  - type: web
+    name: ai-connect-meme-trader
+    runtime: python
+    plan: free
+    buildCommand: pip install -r requirements.txt
+    startCommand: bash start.sh
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.11.11
+      - key: MIN_SCORE
+        value: "75"
+      - key: MAX_POSITIONS
+        value: "3"
+      - key: PAPER_TRADE_SOL
+        value: "0.05"
+      - key: STOP_LOSS_PCT
+        value: "15"

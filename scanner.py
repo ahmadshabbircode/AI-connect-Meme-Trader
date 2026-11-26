@@ -129,12 +129,12 @@ async def run():
                 async for raw in ws:
                     try: d=json.loads(raw)
                     except Exception: continue
-                    if d.get("mint") and ("txType" in d or "marketCapSol" in d):
-                        if d.get("txType"):
-                            trade_event(c,d)
-                    elif d.get("mint"):
+                    mint=d.get("mint")
+                    tx_type=str(d.get("txType","")).lower()
+                    if mint and tx_type in ("buy","sell"):
+                        trade_event(c,d)
+                    elif mint and (tx_type in ("create","") or d.get("name") or d.get("symbol")):
                         add_token(c,d)
-                        mint=d["mint"]
                         if API_KEY and mint not in subscribed:
                             await ws.send(json.dumps({"method":"subscribeTokenTrade","keys":[mint]}))
                             subscribed.add(mint)
