@@ -5,6 +5,9 @@ services:
     plan: free
     buildCommand: pip install -r requirements.txt
     startCommand: bash start.sh
+    envVars:
+      - key: DATABASE_URL
+        sync: false
 
   - type: worker
     name: ai-connect-meme-trader-scanner
@@ -12,3 +15,6 @@ services:
     plan: starter
     buildCommand: pip install -r requirements.txt
     startCommand: python -m app.scanner
+    envVars:
+      - key: DATABASE_URL
+        sync: false
