@@ -1,3 +1,9 @@
+import sys
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parent
+sys.path.insert(0, str(ROOT))
+
 import streamlit as st, requests, pandas as pd, json, os
 from app.scanner import load_db
 st.set_page_config(page_title='AI-connect Meme Trader V5', layout='wide')
