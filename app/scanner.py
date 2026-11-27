@@ -242,10 +242,21 @@ def dex_data(mint):
 def enrich(mint, meta=None):
     meta = meta or {}
 
-    d = dex_data(mint)
-
-    if not d:
-        return None
+        d = dex_data(mint) or {
+        'pair_address': None,
+        'dex_id': None,
+        'url': None,
+        'price_usd': None,
+        'liquidity_usd': 0,
+        'market_cap': None,
+        'volume_h1': 0,
+        'buys_h1': 0,
+        'sells_h1': 0,
+        'base_name': None,
+        'symbol': None,
+        'created_at': None,
+        'organic_activity_score': 0
+    }
 
     mint_ok, freeze_ok = solana_authorities(mint)
 
