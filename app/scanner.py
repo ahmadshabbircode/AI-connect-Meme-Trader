@@ -242,7 +242,7 @@ def dex_data(mint):
 def enrich(mint, meta=None):
     meta = meta or {}
 
-        d = dex_data(mint) or {
+    d = dex_data(mint) or {
         'pair_address': None,
         'dex_id': None,
         'url': None,
@@ -277,7 +277,6 @@ def enrich(mint, meta=None):
     })
 
     d.update(meta)
-
     d['scoring'] = score_token(d)
 
     d['updated_at'] = datetime.now(
