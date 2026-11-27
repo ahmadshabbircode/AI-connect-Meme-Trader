@@ -164,74 +164,148 @@ def rugcheck(mint):
 # DEX SCREENER DATA
 
 def dex_data(mint):
-    r = requests.get(
-        DEX + mint,
-        timeout=12
-    )
+    # Shared cache and request controls
+    if not hasattr(dex_data, '_cache'):
+        dex_data._cache = {}
 
-    r.raise_for_status()
+    if not hasattr(dex_data, '_lock'):
+        dex_data._lock = threading.Lock()
 
-    pairs = r.json().get('pairs') or []
+    if not hasattr(dex_data, '_last_request'):
+        dex_data._last_request = 0.0
 
-    pairs = [
-        p for p in pairs
-        if p.get('chainId') == 'solana'
-    ]
+    cache = dex_data._cache
 
-    if not pairs:
+    with dex_data._lock:
+        # Return cached data if it is less than 60 seconds old
+        cached = cache.get(mint)
+
+        if cached:
+            saved_time, saved_data = cached
+
+            if time.monotonic() - saved_time < 60:
+                return dict(saved_data) if saved_data else None
+
+        # Retry temporary API rate limits
+        for attempt in range(4):
+
+            # Space requests to avoid overwhelming DexScreener
+            elapsed = time.monotonic() - dex_data._last_request
+            if elapsed < 1.25:
+                time.sleep(1.25 - elapsed)
+
+            try:
+                r = requests.get(
+                    DEX + mint,
+                    timeout=15
+                )
+
+                dex_data._last_request = time.monotonic()
+
+                if r.status_code == 429:
+                    retry_after = r.headers.get('Retry-After')
+
+                    try:
+                        wait = float(retry_after)
+                    except (TypeError, ValueError):
+                        wait = 5 * (2 ** attempt)
+
+                    logging.warning(
+                        'DexScreener rate limit for %s. Retry in %s seconds.',
+                        mint, wait
+                    )
+
+                    if attempt < 3:
+                        time.sleep(min(wait, 60))
+
+                    continue
+
+                r.raise_for_status()
+                pairs = r.json().get('pairs') or []
+
+                pairs = [
+                    p for p in pairs
+                    if p.get('chainId') == 'solana'
+                ]
+
+                if not pairs:
+                    cache[mint] = (time.monotonic(), None)
+                    return None
+
+                p = max(
+                    pairs,
+                    key=lambda x: (
+                        x.get('liquidity') or {}
+                    ).get('usd') or 0
+                )
+
+                tx = p.get('txns', {}).get('h1', {})
+                vol = p.get('volume', {}).get('h1') or 0
+                buys = tx.get('buys') or 0
+                sells = tx.get('sells') or 0
+
+                liq = (
+                    p.get('liquidity') or {}
+                ).get('usd') or 0
+
+                activity = 0
+
+                if liq >= 10000:
+                    activity += 4
+
+                if buys > sells and buys + sells >= 10:
+                    activity += 4
+
+                if vol > 0 and liq > 0 and vol / liq < 20:
+                    activity += 3
+
+                if buys + sells >= 30:
+                    activity += 4
+
+                result = {
+                    'pair_address': p.get('pairAddress'),
+                    'dex_id': p.get('dexId'),
+                    'url': p.get('url'),
+                    'price_usd': p.get('priceUsd'),
+                    'liquidity_usd': liq,
+                    'market_cap': p.get('marketCap') or p.get('fdv'),
+                    'volume_h1': vol,
+                    'buys_h1': buys,
+                    'sells_h1': sells,
+                    'base_name': (
+                        p.get('baseToken') or {}
+                    ).get('name'),
+                    'symbol': (
+                        p.get('baseToken') or {}
+                    ).get('symbol'),
+                    'created_at': p.get('pairCreatedAt'),
+                    'organic_activity_score': min(15, activity)
+                }
+
+                cache[mint] = (
+                    time.monotonic(),
+                    dict(result)
+                )
+
+                return result
+
+            except requests.RequestException as e:
+                logging.warning(
+                    'DexScreener request failed for %s: %s',
+                    mint, e
+                )
+                break
+
+            except (ValueError, TypeError) as e:
+                logging.warning(
+                    'DexScreener data error for %s: %s',
+                    mint, e
+                )
+                break
+
+        # Cache temporary failures briefly to prevent repeated requests
+        cache[mint] = (time.monotonic(), None)
         return None
-
-    p = max(
-        pairs,
-        key=lambda x: (
-            x.get('liquidity') or {}
-        ).get('usd') or 0
-    )
-
-    tx = p.get('txns', {}).get('h1', {})
-
-    vol = p.get('volume', {}).get('h1') or 0
-
-    buys = tx.get('buys') or 0
-    sells = tx.get('sells') or 0
-
-    liq = (
-        p.get('liquidity') or {}
-    ).get('usd') or 0
-
-    activity = 0
-
-    if liq >= 10000:
-        activity += 4
-
-    if buys > sells and buys + sells >= 10:
-        activity += 4
-
-    if vol > 0 and liq > 0 and vol / liq < 20:
-        activity += 3
-
-    if buys + sells >= 30:
-        activity += 4
-
-    return {
-        'pair_address': p.get('pairAddress'),
-        'dex_id': p.get('dexId'),
-        'url': p.get('url'),
-        'price_usd': p.get('priceUsd'),
-        'liquidity_usd': liq,
-        'market_cap': p.get('marketCap') or p.get('fdv'),
-        'volume_h1': vol,
-        'buys_h1': buys,
-        'sells_h1': sells,
-        'base_name': (
-            p.get('baseToken') or {}
-        ).get('name'),
-        'symbol': (
-            p.get('baseToken') or {}
-        ).get('symbol'),
-        'created_at': p.get('pairCreatedAt'),
-        'organic_activity_score': min(15, activity)
-    }
 
 
 # TOKEN ENRICHMENT AND SCORING
