@@ -76,17 +76,14 @@ def save_db(db):
     with get_db_connection() as conn:
         init_db(conn)
 
-        conn.executemany("""
-            INSERT INTO tokens (mint, data, updated_at)
-            VALUES (%s, %s, NOW())
-            ON CONFLICT (mint) DO UPDATE
-            SET data = EXCLUDED.data,
-                updated_at = EXCLUDED.updated_at
-        """, [
-            (mint, Jsonb(data))
-            for mint, data in db.items()
-        ])
-
+        for mint, data in db.items():
+            conn.execute("""
+                INSERT INTO tokens (mint, data, updated_at)
+                VALUES (%s, %s, NOW())
+                ON CONFLICT (mint) DO UPDATE
+                SET data = EXCLUDED.data,
+                    updated_at = EXCLUDED.updated_at
+            """, (mint, Jsonb(data)))
 
 # SOLANA SECURITY CHECKS
 
