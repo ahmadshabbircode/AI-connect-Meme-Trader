@@ -464,7 +464,79 @@ def periodic_refresh():
                 e
             )
 
+# GECKOTERMINAL SOLANA NEW POOLS DISCOVERY
 
+def run_geckoterminal_listener():
+
+    url = (
+        'https://api.geckoterminal.com/api/v2/'
+        'networks/solana/new_pools'
+    )
+
+    seen_mints = set()
+
+    while True:
+        try:
+            response = requests.get(
+                url,
+                headers={
+                    'Accept': 'application/json'
+                },
+                timeout=20
+            )
+
+            response.raise_for_status()
+
+            pools = response.json().get('data', [])
+
+            discovered = 0
+
+            for pool in pools:
+                relationships = (
+                    pool.get('relationships') or {}
+                )
+
+                base_data = (
+                    relationships.get('base_token') or {}
+                ).get('data') or {}
+
+                token_id = base_data.get('id', '')
+
+                if not token_id.startswith('solana_'):
+                    continue
+
+                mint = token_id.replace(
+                    'solana_', '', 1
+                )
+
+                if not mint or mint in seen_mints:
+                    continue
+
+                seen_mints.add(mint)
+
+                process_mint(mint)
+
+                discovered += 1
+
+                if discovered >= 10:
+                    break
+
+            logging.info(
+                'GeckoTerminal discovered %s new Solana tokens',
+                discovered
+            )
+
+            if len(seen_mints) > 2000:
+                seen_mints.clear()
+
+        except Exception as e:
+            logging.warning(
+                'GeckoTerminal discovery failed: %s',
+                e
+            )
+
+        time.sleep(70)
+        
 # START SCANNER
 
 def start():
@@ -474,8 +546,12 @@ def start():
         daemon=True
     ).start()
 
-    run_listener()
+    threading.Thread(
+        target=run_geckoterminal_listener,
+        daemon=True
+    ).start()
 
+    run_listener()
 
 if __name__ == '__main__':
     start()
