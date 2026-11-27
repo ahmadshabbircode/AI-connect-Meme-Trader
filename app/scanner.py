@@ -21,7 +21,7 @@ level=logging.INFO,
 format='%(asctime)s %(levelname)s %(message)s'
 )
 
-GENERAL LOCK
+# GENERAL LOCK
 
 LOCK = threading.Lock()
 
